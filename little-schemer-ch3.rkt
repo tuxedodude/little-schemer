@@ -179,8 +179,73 @@
       [else
        (cons (car lat) (multirember a (cdr lat)))])))
 
-(define (muultirember a lat)
-  (filter (lambda (x) (not (eq? a x))) lat))
+(define (muuultirember a lat)
+  (filter (negate (curry eq? a)) lat))
+
+(define multiinsertR
+  (lambda (new old lat)
+    (cond
+      [(null? lat) '()]
+      [(eq? (car lat) old)
+       (cons old (cons new
+                       (multiinsertR new old (cdr lat))))]
+      [else
+       (cons (car lat)
+             (multiinsertR new old (cdr lat)))])))
+
+(check-equal?
+ (multiinsertR 'o 'r '(o r b o u r s))
+ '(o r o b o u r o s))
+
+(define multiinsertL
+  (lambda (new old lat)
+    (cond
+      [(null? lat) '()]
+      [(eq? (car lat) old)
+       (cons new
+             (cons old
+                   (multiinsertL new old
+                                 (cdr lat))))]
+      [else (cons (car lat)
+                  (multiinsertL new old
+                           (cdr lat)))])))
+
+(check-equal?
+ (multiinsertL 'o 'r '(r b r s))
+ '(o r b o r s))
+
+; higher order...
+(define (subst-f match? modify lat)
+  (define (subst-f lat)
+    (let ((recurse (lambda () (subst-f (cdr lat)))))
+      (cond
+        [(null? lat) '()]
+        [(match? (car lat))
+         (modify (car lat) (recurse))]
+        [else
+         (cons (car lat)
+               (recurse))])))
+  (subst-f lat))
+
+(define (multi-insert-R new old lat)
+  (subst-f
+   (curry eq? old)
+   (lambda (a f)
+       (cons a (cons new f)))
+   lat))
+
+(check-equal?
+ (multi-insert-R 'old 'new '(new old older eldest new newest))
+ '(new old old older eldest new old newest))
+
+(define (translate table lat)
+  (subst-f
+   (lambda (term)
+     (assoc term table))
+   (lambda (term remaining)
+       (cons (cdr (assoc term table))
+             remaining)))
+   lat)
 
 (define multisubst
   (lambda (new old lat)
@@ -196,3 +261,15 @@
 (define (muultisubst new old lat)
   (map (lambda (x) (if (equal? x old) new x))
        lat))
+
+(check-equal?
+ (multisubst 'a 'x '(c d e a g x h x x x i l m x))
+ '(c d e a g a h a a a i l m a))
+
+(check-equal?
+ (multisubst 'a 'x '())
+ '())
+
+(check-equal?
+ (multisubst 'a 'x '(a))
+ '(a))
